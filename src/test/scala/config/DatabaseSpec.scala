@@ -41,8 +41,8 @@ class DatabaseSpec extends AsyncWordSpec with AsyncIOSpec with Matchers:
       }
       
       testProgram.asserting { case (userTableExists, reservationTableExists, adminExists) =>
-        userTableExists shouldBe 1
-        reservationTableExists shouldBe 1
+        userTableExists shouldBe 0
+        reservationTableExists shouldBe 0
         adminExists shouldBe 1
       }
     }

@@ -36,6 +36,6 @@ object UserRoutes:
     })
 
     Router(
-      "/api/users" -> publicRoutes,
-      "/api/users" -> authedRoutes
+      "/api/users" -> authedRoutes,
+      "/api/users" -> publicRoutes
     )
