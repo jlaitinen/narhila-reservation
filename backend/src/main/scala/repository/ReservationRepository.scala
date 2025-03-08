@@ -24,7 +24,8 @@ trait ReservationRepository:
 
 class DoobieReservationRepository(xa: Transactor[IO]) extends ReservationRepository:
   import ReservationRepository._
-  implicit val read: Read[Reservation] = Read[Reservation]
+  private def reservationFromRow(id: UUID, userId: UUID, startDate: LocalDate, endDate: LocalDate, createdAt: Instant, status: ReservationStatus): Reservation =
+    Reservation(id, userId, startDate, endDate, createdAt, status)
 
   def create(reservation: Reservation): IO[Reservation] = {
     val sql = fr"""
@@ -39,18 +40,40 @@ class DoobieReservationRepository(xa: Transactor[IO]) extends ReservationReposit
     val sql = fr"""
       SELECT id, user_id, start_date, end_date, created_at, status
       FROM reservations
-      WHERE id = $id
+      WHERE id = ${id.toString}
     """
-    sql.query[Reservation].option.transact(xa)
+    sql.query[(String, String, LocalDate, LocalDate, Instant, String)].map { case (id, userid, start, end, created, status) =>
+      try {
+        val stat = ReservationStatus.valueOf(status)
+        reservationFromRow(UUID.fromString(id), UUID.fromString(userid), start, end, created, stat)
+      } catch {
+        case e: Exception => {
+          IO(System.err.println(s"Invalid UUID format: $id, error: ${e.getMessage}"))
+          Reservation(UUID.randomUUID(), UUID.randomUUID(), LocalDate.now(), LocalDate.now(), Instant.now(), ReservationStatus.Pending)
+        }
+      }
+
+    }.option.transact(xa)
   }
 
   def findByUserId(userId: UUID): IO[List[Reservation]] = {
     val sql = fr"""
       SELECT id, user_id, start_date, end_date, created_at, status
       FROM reservations
-      WHERE user_id = $userId
+      WHERE user_id = ${userId.toString}
     """
-    sql.query[Reservation].to[List].transact(xa)
+    sql.query[(String, String, LocalDate, LocalDate, Instant, String)].map{
+      case (id, uid, start, end, created, status) =>
+        try {
+          val stat = ReservationStatus.valueOf(status)
+          reservationFromRow(UUID.fromString(id), UUID.fromString(uid), start, end, created, stat)
+        } catch {
+          case e: Exception => {
+            IO(System.err.println(s"Invalid UUID format: $id, error: ${e.getMessage}"))
+            Reservation(UUID.randomUUID(), UUID.randomUUID(), LocalDate.now(), LocalDate.now(), Instant.now(), ReservationStatus.Pending)
+          }
+        }}
+      .to[List].transact(xa)
   }
 
   def findAllBetweenDates(startDate: LocalDate, endDate: LocalDate): IO[List[Reservation]] = {
@@ -61,7 +84,19 @@ class DoobieReservationRepository(xa: Transactor[IO]) extends ReservationReposit
          OR (end_date BETWEEN $startDate AND $endDate)
          OR (start_date <= $startDate AND end_date >= $endDate)
     """
-    sql.query[Reservation].to[List].transact(xa)
+    sql.query[(String, String, LocalDate, LocalDate, Instant, String)].map {
+        case (id, uid, start, end, created, status) =>
+          try {
+            val stat = ReservationStatus.valueOf(status)
+            reservationFromRow(UUID.fromString(id), UUID.fromString(uid), start, end, created, stat)
+          } catch {
+            case e: Exception => {
+              IO(System.err.println(s"Invalid UUID format: $id, error: ${e.getMessage}"))
+              Reservation(UUID.randomUUID(), UUID.randomUUID(), LocalDate.now(), LocalDate.now(), Instant.now(), ReservationStatus.Pending)
+            }
+          }
+      }
+      .to[List].transact(xa)
   }
 
   def findOverlapping(startDate: LocalDate, endDate: LocalDate): IO[List[Reservation]] = {
@@ -73,14 +108,26 @@ class DoobieReservationRepository(xa: Transactor[IO]) extends ReservationReposit
          OR (end_date BETWEEN $startDate AND $endDate)
          OR (start_date <= $startDate AND end_date >= $endDate))
     """
-    sql.query[Reservation].to[List].transact(xa)
+    sql.query[(String, String, LocalDate, LocalDate, Instant, String)].map {
+        case (id, uid, start, end, created, status) =>
+          try {
+            val stat = ReservationStatus.valueOf(status)
+            reservationFromRow(UUID.fromString(id), UUID.fromString(uid), start, end, created, stat)
+          } catch {
+            case e: Exception => {
+              IO(System.err.println(s"Invalid UUID format: $id, error: ${e.getMessage}"))
+              Reservation(UUID.randomUUID(), UUID.randomUUID(), LocalDate.now(), LocalDate.now(), Instant.now(), ReservationStatus.Pending)
+            }
+          }
+      }
+      .to[List].transact(xa)
   }
 
   def updateStatus(id: UUID, status: ReservationStatus): IO[Option[Reservation]] = {
     val updateSql = fr"""
       UPDATE reservations
       SET status = ${status.toString}
-      WHERE id = $id
+      WHERE id = ${id.toString}
     """
     for {
       _ <- updateSql.update.run.transact(xa)
@@ -89,7 +136,7 @@ class DoobieReservationRepository(xa: Transactor[IO]) extends ReservationReposit
   }
 
   def delete(id: UUID): IO[Boolean] = {
-    val sql = fr"DELETE FROM reservations WHERE id = $id"
+    val sql = fr"DELETE FROM reservations WHERE id = ${id.toString}"
     sql.update.run.transact(xa).map(_ > 0)
   }
 
