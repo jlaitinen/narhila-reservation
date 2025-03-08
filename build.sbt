@@ -2,8 +2,17 @@ val scala3Version = "3.3.1"
 
 lazy val root = project
   .in(file("."))
+  .aggregate(backend, frontend, shared.jvm, shared.js)
   .settings(
     name := "cottage-reservation-service",
+    version := "0.1.0",
+    scalaVersion := scala3Version
+  )
+
+lazy val backend = project
+  .in(file("backend"))
+  .settings(
+    name := "cottage-reservation-backend",
     version := "0.1.0",
     scalaVersion := scala3Version,
     
@@ -41,5 +50,56 @@ lazy val root = project
       "org.scalatest" %% "scalatest" % "3.2.17" % Test,
       "org.scalatestplus" %% "mockito-4-11" % "3.2.17.0" % Test,
       "org.typelevel" %% "cats-effect-testing-scalatest" % "1.5.0" % Test
+    )
+  )
+  .dependsOn(shared.jvm)
+
+lazy val frontend = project
+  .in(file("frontend"))
+  .enablePlugins(ScalaJSPlugin)
+  .enablePlugins(ScalaJSBundlerPlugin)
+  .settings(
+    name := "cottage-reservation-frontend",
+    version := "0.1.0",
+    scalaVersion := scala3Version,
+    scalaJSUseMainModuleInitializer := true,
+    
+    Compile / npmDependencies ++= Seq(
+      "react" -> "18.2.0",
+      "react-dom" -> "18.2.0",
+      "react-calendar" -> "4.8.0", // Calendar component for date selection
+      "@emotion/react" -> "11.11.1",
+      "@emotion/styled" -> "11.11.0",
+      "@mui/material" -> "5.14.18",   // Material UI components
+      "@mui/icons-material" -> "5.14.18"  // Material icons
+    ),
+    
+    libraryDependencies ++= Seq(
+      "com.github.japgolly.scalajs-react" %%% "core" % "2.1.1",
+      "com.github.japgolly.scalajs-react" %%% "extra" % "2.1.1",
+      "io.circe" %%% "circe-core" % "0.14.5",
+      "io.circe" %%% "circe-generic" % "0.14.5",
+      "io.circe" %%% "circe-parser" % "0.14.5",
+      "io.github.cquiroz" %%% "scala-java-time" % "2.5.0" // For date/time handling in ScalaJS
+    ),
+    Compile / envVars += ("NODE_OPTIONS" -> "--openssl-legacy-provider"),
+    run / envVars += ("NODE_OPTIONS" -> "--openssl-legacy-provider"),
+
+    webpackConfigFile := Some(baseDirectory.value / "webpack.config.js")
+  )
+  .dependsOn(shared.js)
+
+lazy val shared = crossProject(JSPlatform, JVMPlatform)
+  .crossType(CrossType.Pure)
+  .in(file("shared"))
+  .settings(
+    name := "cottage-reservation-shared",
+    version := "0.1.0",
+    scalaVersion := scala3Version,
+    
+    libraryDependencies ++= Seq(
+      "io.circe" %%% "circe-core" % "0.14.5",
+      "io.circe" %%% "circe-generic" % "0.14.5",
+      "io.circe" %%% "circe-parser" % "0.14.5"
     )
   )
