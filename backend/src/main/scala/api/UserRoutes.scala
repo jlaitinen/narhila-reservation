@@ -1,7 +1,7 @@
 package api
 
 import cats.effect.IO
-import org.http4s.{AuthedRoutes, HttpRoutes, Response}
+import org.http4s.{AuthedRoutes, HttpRoutes, Response, Status}
 import org.http4s.dsl.io.*
 import org.http4s.circe.CirceEntityCodec.*
 import service.UserService
@@ -22,11 +22,21 @@ object UserRoutes:
         yield response
 
       case req @ POST -> Root / "login" =>
-        for
-          loginRequest <- req.as[LoginRequest]
-          loginResponse <- userService.login(loginRequest)
-          response <- Ok(loginResponse)
-        yield response
+        req.as[LoginRequest].flatMap { loginRequest =>
+          // Add better error handling
+          userService.login(loginRequest).attempt.flatMap {
+            case Right(loginResponse) => 
+              Ok(loginResponse)
+            case Left(error) => 
+              // Log the full error but return a simplified message to the client
+              // Create a mock LoginResponse on auth error to match expected format
+              IO(System.err.println(s"Login error: ${error.getMessage}")) *>
+              // Return a proper 401 response and let the client handle it
+              IO.pure(Response[IO](status = Status.Unauthorized).withEntity(
+                Map("error" -> "Invalid username or password")
+              ))
+          }
+        }
     }
 
     val authMiddleware = AuthMiddleware.authUser(userService)

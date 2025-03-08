@@ -12,6 +12,6 @@ VALUES (
   'f47ac10b-58cc-4372-a567-0e02b2c3d479',
   'admin',
   'admin@example.com',
-  '$2a$10$rnD8/rDlB7G9eF4diuIOZe/Hs0a5VfUmK1WHLWqqLXMxM9TJHD/D.',
+  '$2a$10$Z63mO52Wbc7moZ2jwdWHfOpuBXpO7eiGUfsSrLb40OlPYbcEjlIhG',
   'Admin'
 );

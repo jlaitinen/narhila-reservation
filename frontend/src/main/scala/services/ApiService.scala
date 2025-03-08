@@ -50,11 +50,32 @@ object ApiService:
     ).asInstanceOf[dom.RequestInit]
 
     dom.fetch(url, requestInit)
-      .flatMap(_.text())
-      .map { text =>
-        decode[R](text) match
-          case Right(value) => promise.success(value)
-          case Left(error) => promise.failure(new Exception(s"Failed to decode response: $error"))
+      .flatMap(response => 
+        if (response.ok) {
+          response.text().map(Right(_))
+        } else {
+          // Handle error responses
+          response.text().map(errorText => {
+            try {
+              // Try to parse error as JSON
+              val errorJson = js.JSON.parse(errorText).asInstanceOf[js.Dynamic]
+              val errorMsg = Option(errorJson.error.asInstanceOf[js.UndefOr[String]])
+                .flatMap(_.toOption)
+                .getOrElse("Unknown error")
+              Left(s"API Error: $errorMsg")
+            } catch {
+              case _: Throwable => Left(s"API Error: ${response.statusText}")
+            }
+          })
+        }
+      )
+      .map {
+        case Right(text) =>
+          decode[R](text) match
+            case Right(value) => promise.success(value)
+            case Left(error) => promise.failure(new Exception(s"Failed to decode response: $error"))
+        case Left(errorMsg) =>
+          promise.failure(new Exception(errorMsg))
       }
       .recover { case e =>
         promise.failure(new Exception(s"Failed to post data: ${e.getMessage}"))

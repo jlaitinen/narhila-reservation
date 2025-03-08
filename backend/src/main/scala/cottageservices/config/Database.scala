@@ -37,5 +37,7 @@ case class DbConfig(
   url: String,
   user: String,
   password: String,
-  maxConnections: Int
+  maxConnections: Int = 10,
+  migrationsTable: String = "schema_migrations",
+  migrationsLocations: List[String] = List("classpath:db/migration")
 )

@@ -120,20 +120,22 @@ object ReservationRequest:
 
 case class ReservationView(
   id: UUID,
+  userId: UUID,
   startDate: LocalDate,
   endDate: LocalDate,
   status: ReservationStatus,
-  createdAt: java.time.Instant
+  createdAt: java.time.LocalDateTime  // Change from Instant to LocalDateTime to match shared model
 )
 
 object ReservationView:
   def fromReservation(reservation: Reservation): ReservationView =
     ReservationView(
       reservation.id,
+      reservation.userId,
       reservation.startDate,
       reservation.endDate,
       reservation.status,
-      reservation.createdAt
+      java.time.LocalDateTime.ofInstant(reservation.createdAt, java.time.ZoneOffset.UTC)  // Convert from Instant to LocalDateTime
     )
   
   given Encoder[ReservationView] = deriveEncoder[ReservationView]

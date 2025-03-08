@@ -74,18 +74,23 @@ lazy val frontend = project
       "@mui/icons-material" -> "5.14.18"  // Material icons
     ),
     
+    scalaJSLinkerConfig ~= { _.withModuleKind(ModuleKind.CommonJSModule) },
+    requireJsDomEnv := true,
+    
     libraryDependencies ++= Seq(
       "com.github.japgolly.scalajs-react" %%% "core" % "2.1.1",
       "com.github.japgolly.scalajs-react" %%% "extra" % "2.1.1",
       "io.circe" %%% "circe-core" % "0.14.5",
       "io.circe" %%% "circe-generic" % "0.14.5",
       "io.circe" %%% "circe-parser" % "0.14.5",
-      "io.github.cquiroz" %%% "scala-java-time" % "2.5.0" // For date/time handling in ScalaJS
+      "io.github.cquiroz" %%% "scala-java-time" % "2.5.0", // For date/time handling in ScalaJS
+      "io.github.cquiroz" %%% "scala-java-time-tzdb" % "2.5.0" // Timezone database for ScalaJS
     ),
     Compile / envVars += ("NODE_OPTIONS" -> "--openssl-legacy-provider"),
     run / envVars += ("NODE_OPTIONS" -> "--openssl-legacy-provider"),
 
-    webpackConfigFile := Some(baseDirectory.value / "webpack.config.js")
+    webpackConfigFile := Some(baseDirectory.value / "webpack.config.js"),
+    webpackDevServerExtraArgs := Seq("--mode", "development", "--open")
   )
   .dependsOn(shared.js)
 

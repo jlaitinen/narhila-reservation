@@ -18,7 +18,7 @@ case class HttpConfig(
 ) derives ConfigReader
 
 case class SecurityConfig(
-  jwtSecret: String
+  jwtSecret: String = "" // Renamed from jwt-secret in config file using PureConfig naming convention
 ) derives ConfigReader
 
 object AppConfig:

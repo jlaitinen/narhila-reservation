@@ -30,24 +30,24 @@ object Server extends IOApp:
           _ <- Database.initialize(xa)
           
           // Create repositories
-          userRepo = new DoobieUserRepository(xa)
-          reservationRepo = new DoobieReservationRepository(xa)
+          userRepo <- IO(new DoobieUserRepository(xa))
+          reservationRepo <- IO(new DoobieReservationRepository(xa))
           
           // Create services
-          userService = new UserService(userRepo, config.security.jwtSecret)
-          reservationService = new ReservationService(reservationRepo)
+          userService <- IO(new UserService(userRepo, config.security.jwtSecret))
+          reservationService <- IO(new ReservationService(reservationRepo))
           
           // Create authentication middleware
-          authMiddleware = AuthMiddleware.authUser(userService)
+          authMiddleware <- IO(AuthMiddleware.authUser(userService))
           
           // Define HTTP routes
-          httpApp = Router(
+          httpApp <- IO(Router(
             "/" -> UserRoutes.routes(userService),
             "/" -> ReservationRoutes.routes(reservationService, authMiddleware)
-          ).orNotFound
+          ).orNotFound)
           
           // Add request logging
-          loggedApp = Logger.httpApp(logHeaders = true, logBody = true)(httpApp)
+          loggedApp <- IO(Logger.httpApp(logHeaders = true, logBody = true)(httpApp))
           
           // Start HTTP server
           _ <- logger.info(s"Starting HTTP server at ${config.http.host}:${config.http.port}")

@@ -42,33 +42,68 @@ class UserService(userRepository: UserRepository, jwtSecret: String):
 
   def login(request: LoginRequest): IO[LoginResponse] =
     for
+      // Validate input parameters
+      _ <- IO.raiseWhen(request.username == null || request.username.trim.isEmpty)(
+        new Exception("Username cannot be empty")
+      )
+      _ <- IO.raiseWhen(request.password == null)(
+        new Exception("Password cannot be empty")
+      )
+      
+      // Find user by username
       user: User <- userRepository.findByUsername(request.username).flatMap {
         case Some(user) => IO.pure(user)
         case None => IO.raiseError(new Exception("Invalid username or password"))
       }
       
+      // Verify password hash is not null
+      _ <- IO.raiseWhen(user.passwordHash == null)(
+        new Exception("User has invalid password hash")
+      )
+      
+      // Check password
       _ <- IO.pure(BCrypt.checkpw(request.password, user.passwordHash)).flatMap {
         case true => IO.unit
         case false => IO.raiseError(new Exception("Invalid username or password"))
       }
       
+      // Create token and response
       token = createToken(user)
       userView = UserView.fromUser(user)
     yield LoginResponse(token, userView)
 
   def validateToken(token: String): IO[UUID] =
-    IO.fromEither(
-      for {
-        claim <- JwtCirce.decode(token, jwtSecret, Seq(JwtAlgorithm.HS256)).toEither
-        contentMap <- io.circe.parser.decode[Map[String, String]](claim.content)
-        userId <- contentMap.get("user_id").toRight(new Exception("No user ID in token"))
-        uuid <- try {
-          Right(UUID.fromString(userId))
-        } catch {
-          case _: Exception => Left(new Exception("Invalid user ID in token"))
-        }
-      } yield uuid
-    ).handleErrorWith(_ => IO.raiseError(new Exception("Invalid token")))
+    // Check for null or empty token
+    if (token == null || token.trim.isEmpty) {
+      IO.raiseError(new Exception("Token cannot be empty"))
+    } else {
+      IO.fromEither(
+        for {
+          // Decode JWT
+          claim <- JwtCirce.decode(token, jwtSecret, Seq(JwtAlgorithm.HS256)).toEither
+          
+          // Parse content
+          content = if (claim.content == null) "" else claim.content
+          contentMap <- io.circe.parser.decode[Map[String, String]](content)
+            .left.map(_ => new Exception("Invalid token content"))
+          
+          // Extract user ID
+          userId <- contentMap.get("user_id")
+            .toRight(new Exception("No user ID in token"))
+          
+          // Parse UUID
+          uuid <- try {
+            Right(UUID.fromString(userId))
+          } catch {
+            case _: Exception => Left(new Exception("Invalid user ID format in token"))
+          }
+        } yield uuid
+      ).handleErrorWith(e => 
+        // Log detailed error but return generic message to user
+        IO(System.err.println(s"Token validation error: ${e.getMessage}")) *>
+        IO.raiseError(new Exception("Invalid or expired token"))
+      )
+    }
 
   def getUserProfile(userId: UUID): IO[UserView] =
     userRepository.findById(userId).flatMap {

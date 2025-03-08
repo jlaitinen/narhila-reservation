@@ -15,8 +15,13 @@ object AuthMiddleware:
   def authUser(userService: UserService): Http4sAuthMiddleware[IO, AuthedUser] =
     val authUser = Kleisli { (request: Request[IO]) =>
       import org.http4s.syntax.all._
-      val authHeader: Option[String] = request.headers.get[Authorization].map { auth =>
-        auth.credentials.renderString.replace("Bearer ", "")
+      val authHeader: Option[String] = request.headers.get[Authorization].flatMap { auth =>
+        val credStr = auth.credentials.renderString
+        if (credStr != null && credStr.startsWith("Bearer ")) {
+          Some(credStr.replace("Bearer ", ""))
+        } else {
+          None
+        }
       }
 
       OptionT(authHeader match {
